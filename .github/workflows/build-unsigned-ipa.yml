@@ -6,6 +6,9 @@ on:
     branches: [main, master]
     paths:
       - "OpticaPro/**"
+      - "OpticaPro.xcodeproj/**"
+      - "README.md"
+      - ".gitignore"
       - ".github/workflows/build-unsigned-ipa.yml"
 
 permissions:
@@ -25,7 +28,7 @@ jobs:
       - name: Build for iPhone
         run: >-
           xcodebuild
-          -project OpticaPro/OpticaPro.xcodeproj
+          -project OpticaPro.xcodeproj
           -scheme OpticaPro
           -configuration Release
           -sdk iphoneos
