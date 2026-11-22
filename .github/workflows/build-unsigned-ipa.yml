@@ -1,0 +1,51 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "OpticaPro/**"
+      - ".github/workflows/build-unsigned-ipa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Optica Pro
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build for iPhone
+        run: >-
+          xcodebuild
+          -project OpticaPro/OpticaPro.xcodeproj
+          -scheme OpticaPro
+          -configuration Release
+          -sdk iphoneos
+          -derivedDataPath "$RUNNER_TEMP/OpticaDerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Package unsigned IPA
+        run: |
+          APP_PATH="$RUNNER_TEMP/OpticaDerivedData/Build/Products/Release-iphoneos/OpticaPro.app"
+          test -d "$APP_PATH"
+          PACKAGE_PATH="$RUNNER_TEMP/OpticaIPAPackage"
+          mkdir -p "$PACKAGE_PATH/Payload"
+          cp -R "$APP_PATH" "$PACKAGE_PATH/Payload/OpticaPro.app"
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$PACKAGE_PATH/Payload" "$GITHUB_WORKSPACE/OpticaPro-unsigned.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpticaPro-unsigned-IPA
+          path: OpticaPro-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
