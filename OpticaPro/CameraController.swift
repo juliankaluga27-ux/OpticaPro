@@ -366,11 +366,7 @@ final class CameraController: NSObject, ObservableObject {
     private func toggleRecording(mode: CaptureMode) {
         if movieOutput.isRecording { movieOutput.stopRecording(); return }
         recordingMode = mode
-        let ext = videoFormat.hasPrefix("MP4") ? "mp4" : "mov"
-        let requestedType: AVFileType = ext == "mp4" ? .mp4 : .mov
-        let actualType = movieOutput.availableOutputFileTypes.contains(requestedType) ? requestedType : .mov
-        if actualType != requestedType { errorMessage = "Ten kontener nie jest dostępny w tej konfiguracji. Film zostanie zapisany jako MOV." }
-        let actualExtension = actualType == .mp4 ? "mp4" : "mov"
+        let actualExtension = "mov"
         if let connection = movieOutput.connection(with: .video) {
             let codec: AVVideoCodecType = videoFormat.contains("H.264") ? .h264 : .hevc
             if movieOutput.availableVideoCodecTypes.contains(codec) {
@@ -388,8 +384,9 @@ final class CameraController: NSObject, ObservableObject {
         if recordingMode == .slowMotion { speed = Double(max(frameRate, 60)) / 30.0 }
         else if recordingMode == .timeLapse { speed = Double(max(timeLapseSpeed, 2)) }
         else { speed = 1 }
-        if speed != 1 {
-            retimeVideo(at: url, speed: speed) { [weak self] output in
+        let wantsMP4 = videoFormat.hasPrefix("MP4")
+        if speed != 1 || wantsMP4 {
+            retimeVideo(at: url, speed: speed, wantsMP4: wantsMP4) { [weak self] output in
                 guard let self else { return }
                 if let output { self.storeVideo(output) }
                 else { DispatchQueue.main.async { self.errorMessage = "Nie udało się przetworzyć filmu. Zachowano oryginalne nagranie."; self.storeVideo(url) } }
@@ -406,7 +403,7 @@ final class CameraController: NSObject, ObservableObject {
         }
     }
 
-    private func retimeVideo(at url: URL, speed: Double, completion: @escaping (URL?) -> Void) {
+    private func retimeVideo(at url: URL, speed: Double, wantsMP4: Bool, completion: @escaping (URL?) -> Void) {
         let asset = AVURLAsset(url: url)
         guard let sourceTrack = asset.tracks(withMediaType: .video).first else { completion(nil); return }
         let composition = AVMutableComposition()
@@ -418,10 +415,15 @@ final class CameraController: NSObject, ObservableObject {
             let outputDuration = CMTime(seconds: asset.duration.seconds / speed, preferredTimescale: 600)
             targetTrack.scaleTimeRange(CMTimeRange(start: .zero, duration: asset.duration), toDuration: outputDuration)
         } catch { completion(nil); return }
-        let output = FileManager.default.temporaryDirectory.appendingPathComponent("Optica-\(UUID().uuidString).mov")
-        guard let exporter = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else { completion(nil); return }
+        let preset = speed == 1 ? AVAssetExportPresetPassthrough : AVAssetExportPresetHighestQuality
+        guard let exporter = AVAssetExportSession(asset: composition, presetName: preset) else { completion(nil); return }
+        let requestedType: AVFileType = wantsMP4 ? .mp4 : .mov
+        let outputType = exporter.supportedFileTypes.contains(requestedType) ? requestedType : .mov
+        if outputType != requestedType { DispatchQueue.main.async { self.errorMessage = "MP4 nie jest dostępny dla tego klipu. Zapisano MOV." } }
+        let ext = outputType == .mp4 ? "mp4" : "mov"
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("Optica-\(UUID().uuidString).\(ext)")
         exporter.outputURL = output
-        exporter.outputFileType = .mov
+        exporter.outputFileType = outputType
         exporter.shouldOptimizeForNetworkUse = false
         exporter.exportAsynchronously {
             completion(exporter.status == .completed ? output : nil)
