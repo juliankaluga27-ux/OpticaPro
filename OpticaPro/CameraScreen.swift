@@ -106,7 +106,7 @@ struct CameraScreen: View {
         HStack(spacing: 12) {
             ForEach([1.0, 1.5, 2.0, 3.0], id: \.self) { factor in
                 Button { camera.setZoom(factor) } label: {
-                    Text(factor == 1 ? "1×" : "\(factor.formatted(.number.precision(.fractionLength(0...1))))×")
+                    Text(factor == 1 ? "1×" : "\(String(format: "%.1f", factor))×")
                         .font(.system(size: 13, weight: .bold)).foregroundStyle(abs(camera.zoom - factor) < 0.12 ? accent : .white)
                         .frame(width: 44, height: 38).background(.black.opacity(0.5), in: Circle())
                 }
@@ -136,7 +136,7 @@ struct CameraScreen: View {
     private var bottomControls: some View {
         VStack(spacing: 13) {
             HStack(spacing: 10) {
-                Button { showZoom.toggle() } label: { Text("\(camera.zoom.formatted(.number.precision(.fractionLength(0...1))))×").font(.system(size: 12, weight: .bold)).frame(width: 50, height: 32).background(.black.opacity(0.5), in: Capsule()) }
+                Button { showZoom.toggle() } label: { Text("\(String(format: "%.1f", Double(camera.zoom)))×").font(.system(size: 12, weight: .bold)).frame(width: 50, height: 32).background(.black.opacity(0.5), in: Capsule()) }
                 Button { showProControls.toggle() } label: { Text("EV \(camera.exposureEV, specifier: "%+.1f")").font(.system(size: 11, weight: .bold)).foregroundStyle(accent).frame(height: 32).padding(.horizontal, 12).background(.black.opacity(0.5), in: Capsule()) }
                 Spacer()
                 if mode.isVideo {
